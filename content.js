@@ -137,14 +137,21 @@ function setupEventListeners() {
 
 // Handle text selection
 function handleTextSelection(e) {
-  const selection = window.getSelection();
-  if (selection.toString().trim().length > 0) {
-    showHighlightOptions(e, selection);
-  }
+  // Small delay to avoid conflicts with double-click
+  setTimeout(() => {
+    const selection = window.getSelection();
+    if (selection.toString().trim().length > 0) {
+      showHighlightOptions(e, selection);
+    }
+  }, 50);
 }
 
 // Show highlight options after text selection
 function showHighlightOptions(e, selection) {
+  // Remove any existing toolbars first
+  const existingToolbars = document.querySelectorAll('.smart-highlight-toolbar');
+  existingToolbars.forEach(toolbar => toolbar.remove());
+  
   const range = selection.getRangeAt(0);
   const rect = range.getBoundingClientRect();
   
@@ -211,10 +218,74 @@ async function highlightSelection(color) {
   try {
     range.surroundContents(highlightElement);
   } catch (e) {
-    // Fallback for complex selections
-    const contents = range.extractContents();
-    highlightElement.appendChild(contents);
-    range.insertNode(highlightElement);
+    // Fallback for complex selections that span multiple elements
+    try {
+      const contents = range.extractContents();
+      highlightElement.appendChild(contents);
+      range.insertNode(highlightElement);
+    } catch (e2) {
+      // Last resort: create multiple highlights for each text node in the selection
+      try {
+        const walker = document.createTreeWalker(
+          range.commonAncestorContainer,
+          NodeFilter.SHOW_TEXT,
+          {
+            acceptNode: function(node) {
+              return range.intersectsNode(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+            }
+          }
+        );
+        
+        let textNode;
+        const textNodes = [];
+        while (textNode = walker.nextNode()) {
+          if (range.intersectsNode(textNode)) {
+            textNodes.push(textNode);
+          }
+        }
+        
+        // Highlight each text node separately
+        textNodes.forEach((textNode, index) => {
+          const nodeRange = document.createRange();
+          const nodeText = textNode.textContent;
+          const fullText = selectedText;
+          
+          // Find the portion of this text node that's part of our selection
+          let startOffset = 0;
+          let endOffset = nodeText.length;
+          
+          if (textNode === range.startContainer) {
+            startOffset = range.startOffset;
+          }
+          if (textNode === range.endContainer) {
+            endOffset = range.endOffset;
+          }
+          
+          nodeRange.setStart(textNode, startOffset);
+          nodeRange.setEnd(textNode, endOffset);
+          
+          const nodeHighlight = document.createElement('span');
+          nodeHighlight.className = `smart-highlight smart-highlight-${color}`;
+          nodeHighlight.dataset.highlightId = `${highlightElement.dataset.highlightId}-part${index}`;
+          nodeHighlight.dataset.color = color;
+          nodeHighlight.dataset.projects = JSON.stringify(activeProjects);
+          nodeHighlight.dataset.parentId = highlightElement.dataset.highlightId;
+          
+          try {
+            nodeRange.surroundContents(nodeHighlight);
+          } catch (e3) {
+            console.warn('Could not highlight text node:', e3);
+          }
+        });
+        
+        console.log('Created multi-part highlight for complex selection');
+      } catch (e3) {
+        console.error('All highlighting methods failed:', e3);
+        showNotification('Could not highlight this selection');
+        selection.removeAllRanges();
+        return null;
+      }
+    }
   }
   
   // Save highlight data
@@ -233,11 +304,13 @@ async function highlightSelection(color) {
   
   await saveHighlight(highlightData);
   
-  // Add context menu listener
+  // Add context menu listener with higher priority
   highlightElement.addEventListener('contextmenu', (e) => {
     e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
     showHighlightContextMenu(e, highlightElement, highlightData);
-  });
+  }, true); // Use capture phase
   
   selection.removeAllRanges();
   updatePageIndicator();
@@ -607,11 +680,22 @@ async function restoreHighlights() {
 
 // Restore individual highlight using text matching
 async function restoreHighlight(highlightData) {
+  // Wait a bit for page to fully load
+  await new Promise(resolve => setTimeout(resolve, 100));
+  
   // Simple text matching restoration
   const walker = document.createTreeWalker(
     document.body,
     NodeFilter.SHOW_TEXT,
-    null,
+    {
+      acceptNode: function(node) {
+        // Skip if parent is already a highlight
+        if (node.parentElement && node.parentElement.classList.contains('smart-highlight')) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    },
     false
   );
   
@@ -625,21 +709,18 @@ async function restoreHighlight(highlightData) {
   // Look for text nodes that contain our highlight text
   for (const textNode of textNodes) {
     const nodeText = textNode.textContent;
-    if (nodeText.includes(highlightData.text)) {
+    const highlightText = highlightData.text.trim();
+    
+    if (nodeText.includes(highlightText)) {
       try {
-        const startIndex = nodeText.indexOf(highlightData.text);
+        const startIndex = nodeText.indexOf(highlightText);
         if (startIndex !== -1) {
-          // Split the text node and wrap the highlight
+          // Create range for the exact text
           const range = document.createRange();
           range.setStart(textNode, startIndex);
-          range.setEnd(textNode, startIndex + highlightData.text.length);
+          range.setEnd(textNode, startIndex + highlightText.length);
           
-          // Check if this text is already highlighted
-          const existingHighlight = range.commonAncestorContainer.parentElement;
-          if (existingHighlight && existingHighlight.classList.contains('smart-highlight')) {
-            continue; // Skip if already highlighted
-          }
-          
+          // Create highlight element
           const highlightElement = document.createElement('span');
           highlightElement.className = `smart-highlight smart-highlight-${highlightData.color}`;
           highlightElement.dataset.highlightId = highlightData.id;
@@ -649,22 +730,47 @@ async function restoreHighlight(highlightData) {
           try {
             range.surroundContents(highlightElement);
             
-            // Add context menu listener
+            // Add context menu listener with higher priority
             highlightElement.addEventListener('contextmenu', (e) => {
               e.preventDefault();
+              e.stopPropagation();
+              e.stopImmediatePropagation();
               showHighlightContextMenu(e, highlightElement, highlightData);
-            });
+            }, true); // Use capture phase
             
-            break; // Found and restored, move to next highlight
+            console.log('Restored highlight:', highlightData.id);
+            return; // Successfully restored, stop looking
           } catch (e) {
-            console.warn('Could not surround contents for highlight:', highlightData.id);
+            console.warn('Could not surround contents for highlight:', highlightData.id, e);
+            
+            // Try alternative approach - extract and wrap
+            try {
+              const contents = range.extractContents();
+              highlightElement.appendChild(contents);
+              range.insertNode(highlightElement);
+              
+              // Add context menu listener with higher priority
+              highlightElement.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                showHighlightContextMenu(e, highlightElement, highlightData);
+              }, true); // Use capture phase
+              
+              console.log('Restored highlight (alternative method):', highlightData.id);
+              return;
+            } catch (e2) {
+              console.warn('Alternative method also failed:', e2);
+            }
           }
         }
       } catch (e) {
-        console.warn('Error restoring highlight:', highlightData.id, e);
+        console.warn('Error processing text node for highlight:', highlightData.id, e);
       }
     }
   }
+  
+  console.warn('Could not find text to restore highlight:', highlightData.id, highlightData.text);
 }
 
 // Make functions globally accessible
