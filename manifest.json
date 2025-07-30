@@ -41,13 +41,6 @@
       },
       "description": "Highlight selected text"
     },
-    "add-note": {
-      "suggested_key": {
-        "default": "Ctrl+N",
-        "mac": "Cmd+N"
-      },
-      "description": "Add note to selection"
-    },
     "open-dashboard": {
       "suggested_key": {
         "default": "Ctrl+Shift+H",
