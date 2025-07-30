@@ -100,32 +100,54 @@ async function setupFilters() {
 
 // Setup event listeners
 function setupEventListeners() {
+  console.log('Setting up event listeners...');
+  
   // Search input
   const searchInput = document.getElementById('search-input');
   if (searchInput) {
-    searchInput.addEventListener('input', debounce(applyFilters, 300));
+    console.log('Adding search listener');
+    searchInput.addEventListener('input', (e) => {
+      console.log('Search input changed:', e.target.value);
+      debounce(applyFilters, 300)();
+    });
   }
   
   // Source filter
   const sourceFilter = document.getElementById('source-filter');
   if (sourceFilter) {
-    sourceFilter.addEventListener('input', debounce(applyFilters, 300));
+    console.log('Adding source filter listener');
+    sourceFilter.addEventListener('input', (e) => {
+      console.log('Source filter changed:', e.target.value);
+      debounce(applyFilters, 300)();
+    });
   }
   
   // Filter dropdowns
   const projectFilter = document.getElementById('project-filter');
   if (projectFilter) {
-    projectFilter.addEventListener('change', applyFilters);
+    console.log('Adding project filter listener');
+    projectFilter.addEventListener('change', (e) => {
+      console.log('Project filter changed:', e.target.value);
+      applyFilters();
+    });
   }
   
   const colorFilter = document.getElementById('color-filter');
   if (colorFilter) {
-    colorFilter.addEventListener('change', applyFilters);
+    console.log('Adding color filter listener');
+    colorFilter.addEventListener('change', (e) => {
+      console.log('Color filter changed:', e.target.value);
+      applyFilters();
+    });
   }
   
   const dateFilter = document.getElementById('date-filter');
   if (dateFilter) {
-    dateFilter.addEventListener('change', handleDateFilter);
+    console.log('Adding date filter listener');
+    dateFilter.addEventListener('change', (e) => {
+      console.log('Date filter changed:', e.target.value);
+      handleDateFilter();
+    });
   }
   
   // Date range inputs
@@ -142,10 +164,13 @@ function setupEventListeners() {
   // Clear filters
   const clearFiltersBtn = document.getElementById('clear-filters-btn');
   if (clearFiltersBtn) {
-    clearFiltersBtn.addEventListener('click', clearFilters);
+    clearFiltersBtn.addEventListener('click', () => {
+      console.log('Clear filters clicked');
+      clearFilters();
+    });
   }
   
-  // Pagination
+  // Pagination - keeping rest the same
   const prevPageBtn = document.getElementById('prev-page-btn');
   if (prevPageBtn) {
     prevPageBtn.addEventListener('click', () => changePage(currentPage - 1));
