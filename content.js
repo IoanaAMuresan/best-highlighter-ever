@@ -312,10 +312,13 @@ function createContextMenu(element, highlightData) {
   
   menu.innerHTML = `
     <div class="menu-item" data-action="copy">
-      <span>📋</span> Copy with Link
+      <span>📋</span> Copy
     </div>
     <div class="menu-item" data-action="copy-page">
       <span>📄</span> Copy Page Highlights
+    </div>
+    <div class="menu-item" data-action="share">
+      <span>🔗</span> Copy Shareable Link
     </div>
     <div class="menu-item" data-action="note">
       <span>📝</span> Add Note
@@ -341,9 +344,6 @@ function createContextMenu(element, highlightData) {
           </div>`
         ).join('')}
       </div>
-    </div>
-    <div class="menu-item" data-action="share">
-      <span>🔗</span> Copy Shareable Link
     </div>
     <div class="menu-item" data-action="dashboard">
       <span>📊</span> Open Dashboard
@@ -528,9 +528,9 @@ function shareHighlight(highlightData) {
   });
 }
 
-// Delete highlight
+// Delete highlight - no confirmation
 async function deleteHighlight(element, highlightData) {
-  if (confirm('Delete this highlight?')) {
+  try {
     // Remove from storage
     const result = await chrome.storage.sync.get(['highlights']);
     const highlights = result.highlights || [];
@@ -544,7 +544,12 @@ async function deleteHighlight(element, highlightData) {
     }
     element.remove();
     
+    updatePageIndicator();
+    updateBadgeCount();
     showNotification('Highlight deleted!');
+  } catch (error) {
+    console.error('Error deleting highlight:', error);
+    showNotification('Failed to delete highlight');
   }
 }
 
