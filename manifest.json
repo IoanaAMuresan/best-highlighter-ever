@@ -1,24 +1,20 @@
 {
   "manifest_version": 3,
-  "name": "Smart Highlighter",
+  "name": "Highlight Hub",
   "version": "1.0.0",
-  "description": "Advanced text highlighting with project management, notes, and sharing capabilities",
-  
+  "description": "Advanced text highlighting with smart search, project management, and knowledge organization",
   "permissions": [
     "storage",
     "contextMenus",
     "activeTab",
     "tabs"
   ],
-  
   "host_permissions": [
     "<all_urls>"
   ],
-  
   "background": {
     "service_worker": "background.js"
   },
-  
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
@@ -27,16 +23,37 @@
       "run_at": "document_end"
     }
   ],
-  
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Smart Highlighter"
+    "default_title": "Highlight Hub"
   },
-  
   "web_accessible_resources": [
     {
       "resources": ["dashboard.html", "dashboard.js", "dashboard.css"],
       "matches": ["<all_urls>"]
     }
-  ]
+  ],
+  "commands": {
+    "highlight-selection": {
+      "suggested_key": {
+        "default": "Ctrl+H",
+        "mac": "Cmd+H"
+      },
+      "description": "Highlight selected text"
+    },
+    "add-note": {
+      "suggested_key": {
+        "default": "Ctrl+N",
+        "mac": "Cmd+N"
+      },
+      "description": "Add note to selection"
+    },
+    "open-dashboard": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+H",
+        "mac": "Cmd+Shift+H"
+      },
+      "description": "Open Highlight Hub dashboard"
+    }
+  }
 }
