@@ -461,6 +461,7 @@ function createContextMenu(element, highlightData) {
           menu.remove();
           break;
         case 'dashboard':
+          console.log('Opening dashboard from context menu');
           openDashboard();
           menu.remove();
           break;
@@ -634,7 +635,14 @@ async function deleteHighlight(element, highlightData) {
 
 // Open dashboard
 function openDashboard() {
-  chrome.runtime.sendMessage({ action: 'openDashboard' });
+  try {
+    // Try direct approach first
+    window.open(chrome.runtime.getURL('dashboard.html'), '_blank');
+  } catch (error) {
+    console.error('Direct dashboard open failed:', error);
+    // Fallback to background script
+    chrome.runtime.sendMessage({ action: 'openDashboard' });
+  }
 }
 
 // Update highlight in storage
