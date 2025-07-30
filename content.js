@@ -418,7 +418,7 @@ function createContextMenu(element, highlightData) {
       </div>
     </div>
     <div class="menu-item" data-action="dashboard">
-      <span>📊</span> Open Dashboard
+      <span>📊</span> Dashboard
     </div>
     <div class="menu-item delete" data-action="delete">
       <span>🗑️</span> Delete
@@ -635,12 +635,23 @@ async function deleteHighlight(element, highlightData) {
 // Open dashboard
 function openDashboard() {
   try {
-    // Try direct approach first
-    window.open(chrome.runtime.getURL('dashboard.html'), '_blank');
+    // Use chrome.runtime API to open dashboard in new tab
+    chrome.runtime.sendMessage({ action: 'openDashboard' }, () => {
+      if (chrome.runtime.lastError) {
+        // Fallback: try direct approach
+        const dashboardUrl = chrome.runtime.getURL('dashboard.html');
+        window.open(dashboardUrl, '_blank');
+      }
+    });
   } catch (error) {
-    console.error('Direct dashboard open failed:', error);
-    // Fallback to background script
-    chrome.runtime.sendMessage({ action: 'openDashboard' });
+    console.error('Error opening dashboard:', error);
+    // Last resort fallback
+    try {
+      const dashboardUrl = chrome.runtime.getURL('dashboard.html');
+      window.open(dashboardUrl, '_blank');
+    } catch (fallbackError) {
+      console.error('Fallback also failed:', fallbackError);
+    }
   }
 }
 
