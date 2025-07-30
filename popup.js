@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Load highlight statistics
 async function loadStats() {
   try {
-    const result = await chrome.storage.local.get(['highlights']);
+    const result = await chrome.storage.sync.get(['highlights']);
     const highlights = result.highlights || [];
     
     // Total highlights
@@ -107,7 +107,7 @@ function setupEventListeners() {
   // Export highlights
   document.getElementById('export-highlights').addEventListener('click', async () => {
     try {
-      const result = await chrome.storage.local.get(['highlights']);
+      const result = await chrome.storage.sync.get(['highlights']);
       const highlights = result.highlights || [];
       
       const exportData = {
