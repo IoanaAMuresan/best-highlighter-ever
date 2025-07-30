@@ -1,10 +1,12 @@
-// Highlight Hub Content Script
+// Highlight Hub Content Script - Fixed Double-Click Issue
 let highlightId = 0;
 let activeProjects = [];
 let colorSchemes = {};
 let isHighlighting = false;
 let selectedText = null;
 let selectedRange = null;
+let lastSelectionTime = 0;
+let selectionTimeout;
 
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {
@@ -16,8 +18,12 @@ if (document.readyState === 'loading') {
 async function init() {
   await loadSettings();
   setupEventListeners();
-  restoreHighlights();
-  updatePageIndicator();
+  
+  // Delay restoration to allow page to fully load
+  setTimeout(() => {
+    restoreHighlights();
+    updatePageIndicator();
+  }, 1000);
 }
 
 // Listen for keyboard shortcuts
@@ -39,7 +45,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       loadSettings();
       break;
     case 'restoreHighlights':
-      restoreHighlights();
+      setTimeout(restoreHighlights, 500);
+      break;
+    case 'dataRestored':
+      setTimeout(() => {
+        restoreHighlights();
+        updatePageIndicator();
+      }, 1000);
       break;
   }
 });
@@ -48,14 +60,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 function handleKeyboardHighlight() {
   const selection = window.getSelection();
   if (selection.toString().trim().length > 0) {
-    highlightSelection('yellow'); // Default to yellow for keyboard shortcut
+    highlightSelection('yellow');
   }
 }
 
 function handleKeyboardNote() {
   const selection = window.getSelection();
   if (selection.toString().trim().length > 0) {
-    // Create highlight first, then add note
     highlightSelection('yellow').then((highlightData) => {
       if (highlightData) {
         setTimeout(() => {
@@ -69,26 +80,18 @@ function handleKeyboardNote() {
   }
 }
 
-async function init() {
-  await loadSettings();
-  setupEventListeners();
-  restoreHighlights();
-}
-
 // Load user settings and projects
 async function loadSettings() {
   const result = await chrome.storage.sync.get(['projects', 'colorSchemes', 'activeProjects']);
   
-  // Default projects if none exist
   if (!result.projects) {
     const defaultProjects = ['Home', 'Work', 'Side Project'];
     await chrome.storage.sync.set({ projects: defaultProjects });
-    activeProjects = ['Home']; // Default active project
+    activeProjects = ['Home'];
   } else {
     activeProjects = result.activeProjects || [result.projects[0]];
   }
   
-  // Default color schemes if none exist
   if (!result.colorSchemes) {
     colorSchemes = {
       'Home': {
@@ -128,45 +131,132 @@ async function loadSettings() {
   }
 }
 
-// Setup event listeners
+// Setup event listeners with proper double-click handling
 function setupEventListeners() {
-  document.addEventListener('mouseup', handleTextSelection);
+  // Use selectionchange event to handle text selection more reliably
+  document.addEventListener('selectionchange', handleSelectionChange);
   document.addEventListener('click', hideContextMenu);
+  document.addEventListener('dblclick', handleDoubleClick);
 }
 
-// Handle text selection
-function handleTextSelection(e) {
-  // Small delay to avoid conflicts with double-click
+// Handle double-click to prevent interference
+function handleDoubleClick(e) {
+  // Clear any pending selection handlers
+  clearTimeout(selectionTimeout);
+  
+  // Hide any existing toolbars
+  hideContextMenu();
+  
+  // Prevent the selection change handler from running
+  lastSelectionTime = Date.now();
+  
+  // Small delay to let the double-click selection settle
   setTimeout(() => {
     const selection = window.getSelection();
     if (selection.toString().trim().length > 0) {
+      // Check if selection is inside an existing highlight
+      const range = selection.getRangeAt(0);
+      const container = range.commonAncestorContainer;
+      const parentElement = container.nodeType === Node.TEXT_NODE ? container.parentElement : container;
+      
+      if (parentElement.closest('.smart-highlight')) {
+        // Don't show toolbar if inside existing highlight
+        return;
+      }
+      
       showHighlightOptions(e, selection);
     }
-  }, 50);
+  }, 100);
+}
+
+// Handle selection changes with debouncing
+function handleSelectionChange() {
+  const now = Date.now();
+  
+  // Ignore rapid selection changes (likely from double-click)
+  if (now - lastSelectionTime < 200) {
+    return;
+  }
+  
+  // Clear existing timeout
+  clearTimeout(selectionTimeout);
+  
+  // Debounce selection handling
+  selectionTimeout = setTimeout(() => {
+    const selection = window.getSelection();
+    const selectedText = selection.toString().trim();
+    
+    if (selectedText.length > 0) {
+      // Check if we're selecting within an existing highlight
+      try {
+        const range = selection.getRangeAt(0);
+        const container = range.commonAncestorContainer;
+        const parentElement = container.nodeType === Node.TEXT_NODE ? container.parentElement : container;
+        
+        // Don't show toolbar if selecting within an existing highlight
+        if (parentElement.closest('.smart-highlight')) {
+          return;
+        }
+        
+        // Create a synthetic event for positioning
+        const rect = range.getBoundingClientRect();
+        const syntheticEvent = {
+          clientX: rect.left + rect.width / 2,
+          clientY: rect.top,
+          pageX: rect.left + rect.width / 2 + window.scrollX,
+          pageY: rect.top + window.scrollY
+        };
+        
+        showHighlightOptions(syntheticEvent, selection);
+      } catch (e) {
+        console.warn('Error handling selection:', e);
+      }
+    } else {
+      // Hide toolbar when no selection
+      hideContextMenu();
+    }
+  }, 150);
 }
 
 // Show highlight options after text selection
 function showHighlightOptions(e, selection) {
   // Remove any existing toolbars first
-  const existingToolbars = document.querySelectorAll('.smart-highlight-toolbar');
-  existingToolbars.forEach(toolbar => toolbar.remove());
+  hideContextMenu();
   
-  const range = selection.getRangeAt(0);
-  const rect = range.getBoundingClientRect();
-  
-  // Create floating toolbar
-  const toolbar = createHighlightToolbar();
-  toolbar.style.left = `${rect.left + window.scrollX}px`;
-  toolbar.style.top = `${rect.top + window.scrollY - 40}px`;
-  
-  document.body.appendChild(toolbar);
-  
-  // Auto-remove after 3 seconds if not used
-  setTimeout(() => {
-    if (toolbar.parentNode) {
-      toolbar.remove();
+  try {
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    
+    // Make sure we have a valid selection
+    if (rect.width === 0 && rect.height === 0) {
+      return;
     }
-  }, 3000);
+    
+    // Create floating toolbar
+    const toolbar = createHighlightToolbar();
+    toolbar.style.left = `${rect.left + window.scrollX}px`;
+    toolbar.style.top = `${rect.top + window.scrollY - 50}px`;
+    
+    // Ensure toolbar is visible on screen
+    const toolbarRect = toolbar.getBoundingClientRect();
+    if (toolbarRect.right > window.innerWidth) {
+      toolbar.style.left = `${window.innerWidth - toolbarRect.width - 10 + window.scrollX}px`;
+    }
+    if (toolbarRect.top < 0) {
+      toolbar.style.top = `${rect.bottom + window.scrollY + 10}px`;
+    }
+    
+    document.body.appendChild(toolbar);
+    
+    // Auto-remove after 4 seconds if not used
+    setTimeout(() => {
+      if (toolbar.parentNode) {
+        toolbar.remove();
+      }
+    }, 4000);
+  } catch (error) {
+    console.warn('Error showing highlight options:', error);
+  }
 }
 
 // Create highlight toolbar
@@ -175,14 +265,14 @@ function createHighlightToolbar() {
   toolbar.className = 'smart-highlight-toolbar';
   toolbar.innerHTML = `
     <div class="highlight-colors">
-      <button class="color-btn" data-color="yellow" style="background: #ffeb3b"></button>
-      <button class="color-btn" data-color="green" style="background: #4caf50"></button>
-      <button class="color-btn" data-color="blue" style="background: #2196f3"></button>
-      <button class="color-btn" data-color="pink" style="background: #e91e63"></button>
-      <button class="color-btn" data-color="orange" style="background: #ff9800"></button>
-      <button class="color-btn" data-color="red" style="background: #f44336"></button>
-      <button class="color-btn" data-color="purple" style="background: #9c27b0"></button>
-      <button class="color-btn" data-color="gray" style="background: #9e9e9e"></button>
+      <button class="color-btn" data-color="yellow" style="background: #ffeb3b" title="Important"></button>
+      <button class="color-btn" data-color="green" style="background: #4caf50" title="Ideas"></button>
+      <button class="color-btn" data-color="blue" style="background: #2196f3" title="Research"></button>
+      <button class="color-btn" data-color="pink" style="background: #e91e63" title="Personal"></button>
+      <button class="color-btn" data-color="orange" style="background: #ff9800" title="Action Items"></button>
+      <button class="color-btn" data-color="red" style="background: #f44336" title="Urgent"></button>
+      <button class="color-btn" data-color="purple" style="background: #9c27b0" title="Questions"></button>
+      <button class="color-btn" data-color="gray" style="background: #9e9e9e" title="Notes"></button>
     </div>
   `;
   
@@ -204,145 +294,120 @@ async function highlightSelection(color) {
   const selection = window.getSelection();
   if (selection.toString().trim().length === 0) return null;
   
-  const range = selection.getRangeAt(0);
-  const selectedText = selection.toString().trim();
-  
-  // Create highlight element
-  const highlightElement = document.createElement('span');
-  highlightElement.className = `smart-highlight smart-highlight-${color}`;
-  highlightElement.dataset.highlightId = `highlight-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  highlightElement.dataset.color = color;
-  highlightElement.dataset.projects = JSON.stringify(activeProjects);
-  
   try {
-    range.surroundContents(highlightElement);
-  } catch (e) {
-    // Fallback for complex selections that span multiple elements
+    const range = selection.getRangeAt(0);
+    const selectedText = selection.toString().trim();
+    
+    // Check if selection spans existing highlights
+    if (selectionSpansHighlights(range)) {
+      showNotification('Cannot highlight across existing highlights');
+      selection.removeAllRanges();
+      return null;
+    }
+    
+    // Create highlight element
+    const highlightElement = document.createElement('span');
+    highlightElement.className = `smart-highlight smart-highlight-${color}`;
+    highlightElement.dataset.highlightId = `highlight-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    highlightElement.dataset.color = color;
+    highlightElement.dataset.projects = JSON.stringify(activeProjects);
+    
     try {
-      const contents = range.extractContents();
-      highlightElement.appendChild(contents);
-      range.insertNode(highlightElement);
-    } catch (e2) {
-      // Last resort: create multiple highlights for each text node in the selection
+      range.surroundContents(highlightElement);
+    } catch (e) {
+      // Fallback for complex selections
       try {
-        const walker = document.createTreeWalker(
-          range.commonAncestorContainer,
-          NodeFilter.SHOW_TEXT,
-          {
-            acceptNode: function(node) {
-              return range.intersectsNode(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
-            }
-          }
-        );
-        
-        let textNode;
-        const textNodes = [];
-        while (textNode = walker.nextNode()) {
-          if (range.intersectsNode(textNode)) {
-            textNodes.push(textNode);
-          }
-        }
-        
-        // Highlight each text node separately
-        textNodes.forEach((textNode, index) => {
-          const nodeRange = document.createRange();
-          const nodeText = textNode.textContent;
-          const fullText = selectedText;
-          
-          // Find the portion of this text node that's part of our selection
-          let startOffset = 0;
-          let endOffset = nodeText.length;
-          
-          if (textNode === range.startContainer) {
-            startOffset = range.startOffset;
-          }
-          if (textNode === range.endContainer) {
-            endOffset = range.endOffset;
-          }
-          
-          nodeRange.setStart(textNode, startOffset);
-          nodeRange.setEnd(textNode, endOffset);
-          
-          const nodeHighlight = document.createElement('span');
-          nodeHighlight.className = `smart-highlight smart-highlight-${color}`;
-          nodeHighlight.dataset.highlightId = `${highlightElement.dataset.highlightId}-part${index}`;
-          nodeHighlight.dataset.color = color;
-          nodeHighlight.dataset.projects = JSON.stringify(activeProjects);
-          nodeHighlight.dataset.parentId = highlightElement.dataset.highlightId;
-          
-          try {
-            nodeRange.surroundContents(nodeHighlight);
-          } catch (e3) {
-            console.warn('Could not highlight text node:', e3);
-          }
-        });
-        
-        console.log('Created multi-part highlight for complex selection');
-      } catch (e3) {
-        console.error('All highlighting methods failed:', e3);
+        const contents = range.extractContents();
+        highlightElement.appendChild(contents);
+        range.insertNode(highlightElement);
+      } catch (e2) {
+        console.warn('Could not highlight this selection:', e2);
         showNotification('Could not highlight this selection');
         selection.removeAllRanges();
         return null;
       }
     }
+    
+    // Save highlight data with improved context
+    const highlightData = {
+      id: highlightElement.dataset.highlightId,
+      text: selectedText,
+      color: color,
+      projects: activeProjects.slice(),
+      url: window.location.href,
+      title: document.title,
+      domain: window.location.hostname,
+      timestamp: new Date().toISOString(),
+      context: getTextContext(highlightElement),
+      notes: []
+    };
+    
+    await saveHighlight(highlightData);
+    
+    // Add context menu listener
+    highlightElement.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      showHighlightContextMenu(e, highlightElement, highlightData);
+      return false;
+    }, { capture: true, passive: false });
+    
+    selection.removeAllRanges();
+    updatePageIndicator();
+    updateBadgeCount();
+    
+    return highlightData;
+  } catch (error) {
+    console.error('Error highlighting selection:', error);
+    showNotification('Error creating highlight');
+    return null;
   }
-  
-  // Save highlight data
-  const highlightData = {
-    id: highlightElement.dataset.highlightId,
-    text: selectedText,
-    color: color,
-    projects: activeProjects.slice(),
-    url: window.location.href,
-    title: document.title,
-    domain: window.location.hostname,
-    timestamp: new Date().toISOString(),
-    xpath: getXPath(highlightElement),
-    notes: []
-  };
-  
-  await saveHighlight(highlightData);
-  
-  // Add context menu listener with highest priority
-  highlightElement.addEventListener('contextmenu', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
-    showHighlightContextMenu(e, highlightElement, highlightData);
-    return false; // Explicitly prevent default
-  }, { capture: true, passive: false }); // Use capture phase and non-passive
-  
-  selection.removeAllRanges();
-  updatePageIndicator();
-  updateBadgeCount();
-  
-  return highlightData;
 }
 
-// Generate XPath for element location
-function getXPath(element) {
-  if (element.id) {
-    return `//*[@id="${element.id}"]`;
-  }
-  
-  const parts = [];
-  while (element && element.nodeType === Node.ELEMENT_NODE) {
-    let index = 1;
-    let sibling = element.previousSibling;
-    
-    while (sibling) {
-      if (sibling.nodeType === Node.ELEMENT_NODE && sibling.nodeName === element.nodeName) {
-        index++;
+// Check if selection spans existing highlights
+function selectionSpansHighlights(range) {
+  const walker = document.createTreeWalker(
+    range.commonAncestorContainer,
+    NodeFilter.SHOW_ELEMENT,
+    {
+      acceptNode: function(node) {
+        return range.intersectsNode(node) && node.classList.contains('smart-highlight') 
+          ? NodeFilter.FILTER_ACCEPT 
+          : NodeFilter.FILTER_REJECT;
       }
-      sibling = sibling.previousSibling;
     }
-    
-    const tagName = element.nodeName.toLowerCase();
-    parts.unshift(`${tagName}[${index}]`);
-    element = element.parentNode;
-  }
+  );
   
-  return '/' + parts.join('/');
+  return walker.nextNode() !== null;
+}
+
+// Get text context around highlight for better restoration
+function getTextContext(element) {
+  try {
+    const parent = element.parentElement;
+    if (!parent) return null;
+    
+    const parentText = parent.textContent;
+    const highlightText = element.textContent;
+    const highlightIndex = parentText.indexOf(highlightText);
+    
+    if (highlightIndex === -1) return null;
+    
+    const contextStart = Math.max(0, highlightIndex - 50);
+    const contextEnd = Math.min(parentText.length, highlightIndex + highlightText.length + 50);
+    
+    return {
+      before: parentText.substring(contextStart, highlightIndex).trim(),
+      after: parentText.substring(highlightIndex + highlightText.length, contextEnd).trim(),
+      parentTag: parent.tagName.toLowerCase(),
+      parentClass: parent.className,
+      parentId: parent.id
+    };
+  } catch (error) {
+    console.warn('Could not get context for highlight:', error);
+    return null;
+  }
 }
 
 // Save highlight to storage
@@ -381,7 +446,6 @@ function createContextMenu(element, highlightData) {
   
   const currentProject = activeProjects[0] || 'Home';
   const currentColors = colorSchemes[currentProject] || {};
-  const currentColorLabel = currentColors[highlightData.color] || highlightData.color;
   
   menu.innerHTML = `
     <div class="menu-item" data-action="copy">
@@ -438,7 +502,6 @@ function createContextMenu(element, highlightData) {
       menu.remove();
     } else if (project) {
       toggleProjectAssignment(element, highlightData, project);
-      // Update the menu item
       const checkbox = e.target.closest('.project-item').querySelector('span');
       const isAssigned = highlightData.projects.includes(project);
       checkbox.textContent = isAssigned ? '☐' : '☑️';
@@ -461,7 +524,6 @@ function createContextMenu(element, highlightData) {
           menu.remove();
           break;
         case 'dashboard':
-          console.log('Opening dashboard from context menu');
           openDashboard();
           menu.remove();
           break;
@@ -503,7 +565,7 @@ async function copyPageHighlights() {
   }
 }
 
-// Update page indicator
+// Copy highlight with link
 function copyHighlight(highlightData) {
   const textWithLink = `"${highlightData.text}" - [${highlightData.title}](${highlightData.url})`;
   navigator.clipboard.writeText(textWithLink).then(() => {
@@ -513,11 +575,9 @@ function copyHighlight(highlightData) {
 
 // Change highlight color
 async function changeHighlightColor(element, highlightData, newColor) {
-  // Update element classes
   element.className = `smart-highlight smart-highlight-${newColor}`;
   element.dataset.color = newColor;
   
-  // Update stored data
   highlightData.color = newColor;
   await updateHighlight(highlightData);
   
@@ -564,7 +624,7 @@ function showNoteDialog(element, highlightData) {
   saveBtn.addEventListener('click', async () => {
     const note = textarea.value.trim();
     if (note) {
-      highlightData.notes = [note]; // Replace existing notes for now
+      highlightData.notes = [note];
       await updateHighlight(highlightData);
       showNotification('Note saved!');
     }
@@ -592,7 +652,7 @@ function showNoteDialog(element, highlightData) {
   });
 }
 
-// Share highlight - now just copies shareable link
+// Share highlight
 function shareHighlight(highlightData) {
   const shareUrl = `${highlightData.url}#highlight-${highlightData.id}`;
   const shareText = `"${highlightData.text}"\n\nSource: ${shareUrl}`;
@@ -602,10 +662,9 @@ function shareHighlight(highlightData) {
   });
 }
 
-// Delete highlight - no confirmation
+// Delete highlight
 async function deleteHighlight(element, highlightData) {
   try {
-    // Remove from storage
     const result = await chrome.storage.sync.get(['highlights']);
     const highlights = result.highlights || [];
     const updatedHighlights = highlights.filter(h => h.id !== highlightData.id);
@@ -618,13 +677,8 @@ async function deleteHighlight(element, highlightData) {
     }
     element.remove();
     
-    // Update indicators (with error handling)
-    try {
-      updatePageIndicator();
-      updateBadgeCount();
-    } catch (e) {
-      console.warn('Could not update indicators:', e);
-    }
+    updatePageIndicator();
+    updateBadgeCount();
     
     showNotification('Highlight deleted!');
   } catch (error) {
@@ -635,24 +689,12 @@ async function deleteHighlight(element, highlightData) {
 
 // Open dashboard
 function openDashboard() {
-  console.log('Opening dashboard...');
-  
-  // Direct approach - most reliable
   const dashboardUrl = chrome.runtime.getURL('dashboard.html');
-  console.log('Dashboard URL:', dashboardUrl);
-  
   try {
     window.open(dashboardUrl, '_blank');
-    console.log('Dashboard opened successfully');
   } catch (error) {
     console.error('Error opening dashboard:', error);
-    
-    // Fallback: try via background script
-    chrome.runtime.sendMessage({ action: 'openDashboard' }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error('Background script fallback failed:', chrome.runtime.lastError);
-      }
-    });
+    chrome.runtime.sendMessage({ action: 'openDashboard' });
   }
 }
 
@@ -682,114 +724,329 @@ function showNotification(message) {
   }, 2000);
 }
 
-// Restore highlights on page load
+// IMPROVED HIGHLIGHT RESTORATION SYSTEM
 async function restoreHighlights() {
+  console.log('Starting highlight restoration...');
+  
   const result = await chrome.storage.sync.get(['highlights']);
   const highlights = result.highlights || [];
   const pageHighlights = highlights.filter(h => h.url === window.location.href);
   
+  console.log(`Found ${pageHighlights.length} highlights for this page`);
+  
+  if (pageHighlights.length === 0) return;
+  
+  // Wait for page to be fully loaded and stable
+  await waitForPageStability();
+  
   for (const highlight of pageHighlights) {
     try {
-      await restoreHighlight(highlight);
+      const restored = await attemptRestore(highlight);
+      if (restored) {
+        console.log('Successfully restored highlight:', highlight.id);
+      } else {
+        console.warn('Could not restore highlight:', highlight.id, highlight.text.substring(0, 50) + '...');
+      }
     } catch (e) {
-      console.warn('Could not restore highlight:', highlight.id, e);
+      console.warn('Error restoring highlight:', highlight.id, e);
     }
   }
 }
 
-// Restore individual highlight using text matching
-async function restoreHighlight(highlightData) {
-  // Wait a bit for page to fully load
-  await new Promise(resolve => setTimeout(resolve, 100));
+// Wait for page to be stable
+function waitForPageStability() {
+  return new Promise((resolve) => {
+    let stabilityTimer;
+    let lastHeight = document.body.scrollHeight;
+    
+    function checkStability() {
+      const currentHeight = document.body.scrollHeight;
+      if (currentHeight === lastHeight) {
+        clearTimeout(stabilityTimer);
+        resolve();
+      } else {
+        lastHeight = currentHeight;
+        stabilityTimer = setTimeout(checkStability, 500);
+      }
+    }
+    
+    setTimeout(checkStability, 1000);
+    setTimeout(resolve, 5000); // Force resolve after 5 seconds max
+  });
+}
+
+// Attempt to restore highlight using multiple strategies
+async function attemptRestore(highlightData) {
+  // Check if highlight already exists
+  if (document.querySelector(`[data-highlight-id="${highlightData.id}"]`)) {
+    return true;
+  }
   
-  // Simple text matching restoration
+  const strategies = [
+    () => restoreByExactMatch(highlightData),
+    () => restoreByFuzzyMatch(highlightData),
+    () => restoreByContext(highlightData),
+    () => restoreByPartialMatch(highlightData)
+  ];
+  
+  for (const strategy of strategies) {
+    try {
+      const result = await strategy();
+      if (result) return true;
+    } catch (e) {
+      // Continue to next strategy
+    }
+  }
+  
+  return false;
+}
+
+// Strategy 1: Exact text match
+function restoreByExactMatch(highlightData) {
   const walker = document.createTreeWalker(
     document.body,
     NodeFilter.SHOW_TEXT,
     {
       acceptNode: function(node) {
-        // Skip if parent is already a highlight
         if (node.parentElement && node.parentElement.classList.contains('smart-highlight')) {
           return NodeFilter.FILTER_REJECT;
         }
         return NodeFilter.FILTER_ACCEPT;
       }
-    },
-    false
+    }
   );
   
-  const textNodes = [];
   let node;
-  
   while (node = walker.nextNode()) {
-    textNodes.push(node);
-  }
-  
-  // Look for text nodes that contain our highlight text
-  for (const textNode of textNodes) {
-    const nodeText = textNode.textContent;
+    const nodeText = node.textContent;
     const highlightText = highlightData.text.trim();
     
-    if (nodeText.includes(highlightText)) {
-      try {
-        const startIndex = nodeText.indexOf(highlightText);
-        if (startIndex !== -1) {
-          // Create range for the exact text
-          const range = document.createRange();
-          range.setStart(textNode, startIndex);
-          range.setEnd(textNode, startIndex + highlightText.length);
-          
-          // Create highlight element
-          const highlightElement = document.createElement('span');
-          highlightElement.className = `smart-highlight smart-highlight-${highlightData.color}`;
-          highlightElement.dataset.highlightId = highlightData.id;
-          highlightElement.dataset.color = highlightData.color;
-          highlightElement.dataset.projects = JSON.stringify(highlightData.projects);
-          
-          try {
-            range.surroundContents(highlightElement);
-            
-            // Add context menu listener with higher priority
-            highlightElement.addEventListener('contextmenu', (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              e.stopImmediatePropagation();
-              showHighlightContextMenu(e, highlightElement, highlightData);
-            }, true); // Use capture phase
-            
-            console.log('Restored highlight:', highlightData.id);
-            return; // Successfully restored, stop looking
-          } catch (e) {
-            console.warn('Could not surround contents for highlight:', highlightData.id, e);
-            
-            // Try alternative approach - extract and wrap
-            try {
-              const contents = range.extractContents();
-              highlightElement.appendChild(contents);
-              range.insertNode(highlightElement);
-              
-              // Add context menu listener with higher priority
-              highlightElement.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-                showHighlightContextMenu(e, highlightElement, highlightData);
-              }, true); // Use capture phase
-              
-              console.log('Restored highlight (alternative method):', highlightData.id);
-              return;
-            } catch (e2) {
-              console.warn('Alternative method also failed:', e2);
-            }
-          }
+    const startIndex = nodeText.indexOf(highlightText);
+    if (startIndex !== -1) {
+      return createHighlightElement(node, startIndex, highlightText.length, highlightData);
+    }
+  }
+  
+  return false;
+}
+
+// Strategy 2: Fuzzy match (ignoring extra whitespace, punctuation)
+function restoreByFuzzyMatch(highlightData) {
+  const normalizeText = (text) => {
+    return text.replace(/\s+/g, ' ').replace(/[^\w\s]/g, '').toLowerCase().trim();
+  };
+  
+  const targetNormalized = normalizeText(highlightData.text);
+  
+  const walker = document.createTreeWalker(
+    document.body,
+    NodeFilter.SHOW_TEXT,
+    {
+      acceptNode: function(node) {
+        if (node.parentElement && node.parentElement.classList.contains('smart-highlight')) {
+          return NodeFilter.FILTER_REJECT;
         }
-      } catch (e) {
-        console.warn('Error processing text node for highlight:', highlightData.id, e);
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    }
+  );
+  
+  let node;
+  while (node = walker.nextNode()) {
+    const nodeNormalized = normalizeText(node.textContent);
+    
+    if (nodeNormalized.includes(targetNormalized)) {
+      const originalText = highlightData.text.trim();
+      const startIndex = node.textContent.toLowerCase().indexOf(originalText.toLowerCase());
+      if (startIndex !== -1) {
+        return createHighlightElement(node, startIndex, originalText.length, highlightData);
       }
     }
   }
   
-  console.warn('Could not find text to restore highlight:', highlightData.id, highlightData.text);
+  return false;
+}
+
+// Strategy 3: Context-based matching
+function restoreByContext(highlightData) {
+  if (!highlightData.context) return false;
+  
+  const { before, after, parentTag, parentClass, parentId } = highlightData.context;
+  
+  let candidates = [];
+  
+  if (parentId) {
+    const element = document.getElementById(parentId);
+    if (element) candidates.push(element);
+  }
+  
+  if (parentClass && candidates.length === 0) {
+    candidates = Array.from(document.getElementsByClassName(parentClass));
+  }
+  
+  if (candidates.length === 0) {
+    candidates = Array.from(document.getElementsByTagName(parentTag || 'p'));
+  }
+  
+  for (const candidate of candidates) {
+    const candidateText = candidate.textContent;
+    const targetText = highlightData.text.trim();
+    
+    if (candidateText.includes(targetText)) {
+      const textIndex = candidateText.indexOf(targetText);
+      const beforeContext = candidateText.substring(Math.max(0, textIndex - 50), textIndex);
+      const afterContext = candidateText.substring(textIndex + targetText.length, textIndex + targetText.length + 50);
+      
+      const beforeMatch = !before || beforeContext.includes(before.substring(-20)) || before.includes(beforeContext.substring(-20));
+      const afterMatch = !after || afterContext.includes(after.substring(0, 20)) || after.includes(afterContext.substring(0, 20));
+      
+      if (beforeMatch && afterMatch) {
+        const textNodes = getTextNodes(candidate);
+        for (const textNode of textNodes) {
+          const nodeText = textNode.textContent;
+          const startIndex = nodeText.indexOf(targetText);
+          if (startIndex !== -1) {
+            return createHighlightElement(textNode, startIndex, targetText.length, highlightData);
+          }
+        }
+      }
+    }
+  }
+  
+  return false;
+}
+
+// Strategy 4: Partial match (for truncated text)
+function restoreByPartialMatch(highlightData) {
+  const originalText = highlightData.text.trim();
+  const minLength = Math.min(20, Math.floor(originalText.length * 0.7));
+  
+  if (originalText.length < minLength) return false;
+  
+  const searchText = originalText.substring(0, minLength);
+  
+  const walker = document.createTreeWalker(
+    document.body,
+    NodeFilter.SHOW_TEXT,
+    {
+      acceptNode: function(node) {
+        if (node.parentElement && node.parentElement.classList.contains('smart-highlight')) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    }
+  );
+  
+  let node;
+  while (node = walker.nextNode()) {
+    const nodeText = node.textContent;
+    const startIndex = nodeText.toLowerCase().indexOf(searchText.toLowerCase());
+    
+    if (startIndex !== -1) {
+      let endIndex = startIndex + searchText.length;
+      while (endIndex < nodeText.length && endIndex - startIndex < originalText.length * 1.2) {
+        const currentMatch = nodeText.substring(startIndex, endIndex);
+        if (currentMatch.toLowerCase().includes(originalText.toLowerCase()) || 
+            originalText.toLowerCase().includes(currentMatch.toLowerCase())) {
+          endIndex++;
+        } else {
+          break;
+        }
+      }
+      
+      const matchedText = nodeText.substring(startIndex, endIndex - 1);
+      if (matchedText.length >= minLength) {
+        return createHighlightElement(node, startIndex, matchedText.length, highlightData);
+      }
+    }
+  }
+  
+  return false;
+}
+
+// Helper function to get all text nodes in an element
+function getTextNodes(element) {
+  const textNodes = [];
+  const walker = document.createTreeWalker(
+    element,
+    NodeFilter.SHOW_TEXT,
+    {
+      acceptNode: function(node) {
+        if (node.parentElement && node.parentElement.classList.contains('smart-highlight')) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    }
+  );
+  
+  let node;
+  while (node = walker.nextNode()) {
+    textNodes.push(node);
+  }
+  
+  return textNodes;
+}
+
+// Create highlight element from text node and position
+function createHighlightElement(textNode, startIndex, length, highlightData) {
+  try {
+    const range = document.createRange();
+    range.setStart(textNode, startIndex);
+    range.setEnd(textNode, startIndex + length);
+    
+    const highlightElement = document.createElement('span');
+    highlightElement.className = `smart-highlight smart-highlight-${highlightData.color}`;
+    highlightElement.dataset.highlightId = highlightData.id;
+    highlightElement.dataset.color = highlightData.color;
+    highlightElement.dataset.projects = JSON.stringify(highlightData.projects);
+    
+    range.surroundContents(highlightElement);
+    
+    // Add context menu listener
+    highlightElement.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      showHighlightContextMenu(e, highlightElement, highlightData);
+    }, true);
+    
+    return true;
+  } catch (error) {
+    console.warn('Could not create highlight element:', error);
+    return false;
+  }
+}
+
+// Update page indicator
+function updatePageIndicator() {
+  const existingIndicator = document.querySelector('.highlight-hub-page-indicator');
+  if (existingIndicator) {
+    existingIndicator.remove();
+  }
+  
+  const highlights = document.querySelectorAll('.smart-highlight');
+  if (highlights.length === 0) return;
+  
+  const indicator = document.createElement('div');
+  indicator.className = 'highlight-hub-page-indicator';
+  indicator.innerHTML = `
+    <span>${highlights.length} highlights</span>
+    <button onclick="copyPageHighlights()">Copy All</button>
+    <button onclick="openDashboard()">Dashboard</button>
+  `;
+  
+  document.body.appendChild(indicator);
+}
+
+// Update badge count
+function updateBadgeCount() {
+  try {
+    chrome.runtime.sendMessage({ action: 'updateBadge' });
+  } catch (error) {
+    console.warn('Could not update badge:', error);
+  }
 }
 
 // Make functions globally accessible
@@ -797,13 +1054,6 @@ window.copyPageHighlights = copyPageHighlights;
 window.openDashboard = openDashboard;
 
 // Hide context menu
-function hideContextMenu() {
-  const existingMenus = document.querySelectorAll('.smart-highlight-context-menu');
-  existingMenus.forEach(menu => menu.remove());
-  
-  const existingToolbars = document.querySelectorAll('.smart-highlight-toolbar');
-  existingToolbars.forEach(toolbar => toolbar.remove());
-}
 function hideContextMenu() {
   const existingMenus = document.querySelectorAll('.smart-highlight-context-menu');
   existingMenus.forEach(menu => menu.remove());
