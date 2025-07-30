@@ -32,21 +32,5 @@
       "resources": ["dashboard.html", "dashboard.js", "dashboard.css"],
       "matches": ["<all_urls>"]
     }
-  ],
-  "commands": {
-    "highlight-selection": {
-      "suggested_key": {
-        "default": "Ctrl+H",
-        "mac": "Cmd+H"
-      },
-      "description": "Highlight selected text"
-    },
-    "open-dashboard": {
-      "suggested_key": {
-        "default": "Ctrl+Shift+H",
-        "mac": "Cmd+Shift+H"
-      },
-      "description": "Open Highlight Hub dashboard"
-    }
-  }
+  ]
 }
