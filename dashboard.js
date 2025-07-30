@@ -93,6 +93,9 @@ function setupEventListeners() {
   // Search input
   document.getElementById('search-input').addEventListener('input', debounce(applyFilters, 300));
   
+  // Source filter
+  document.getElementById('source-filter').addEventListener('input', debounce(applyFilters, 300));
+  
   // Filter dropdowns
   document.getElementById('project-filter').addEventListener('change', applyFilters);
   document.getElementById('color-filter').addEventListener('change', applyFilters);
@@ -219,6 +222,7 @@ function applyFilters() {
 // Clear all filters
 function clearFilters() {
   document.getElementById('search-input').value = '';
+  document.getElementById('source-filter').value = '';
   document.getElementById('project-filter').value = '';
   document.getElementById('color-filter').value = '';
   document.getElementById('date-filter').value = '';
