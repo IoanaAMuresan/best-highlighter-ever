@@ -7,22 +7,32 @@ let currentPage = 1;
 const itemsPerPage = 20;
 
 document.addEventListener('DOMContentLoaded', async () => {
-  await loadHighlights();
-  await loadStats();
-  await setupFilters();
-  setupEventListeners();
-  displayHighlights();
-  
-  // Handle URL hash for direct navigation
-  handleHashNavigation();
+  console.log('Dashboard loading...');
+  try {
+    await loadHighlights();
+    console.log('Highlights loaded:', allHighlights.length);
+    await loadStats();
+    await setupFilters();
+    setupEventListeners();
+    displayHighlights();
+    
+    // Handle URL hash for direct navigation
+    handleHashNavigation();
+  } catch (error) {
+    console.error('Error initializing dashboard:', error);
+  }
 });
 
 // Load all highlights from storage
 async function loadHighlights() {
   try {
+    console.log('Loading highlights from storage...');
     const result = await chrome.storage.sync.get(['highlights']);
     allHighlights = result.highlights || [];
     filteredHighlights = [...allHighlights];
+    
+    console.log('Raw highlights from storage:', result.highlights);
+    console.log('Processed highlights:', allHighlights.length);
     
     // Sort by timestamp (newest first)
     filteredHighlights.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -91,43 +101,93 @@ async function setupFilters() {
 // Setup event listeners
 function setupEventListeners() {
   // Search input
-  document.getElementById('search-input').addEventListener('input', debounce(applyFilters, 300));
+  const searchInput = document.getElementById('search-input');
+  if (searchInput) {
+    searchInput.addEventListener('input', debounce(applyFilters, 300));
+  }
   
   // Source filter
-  document.getElementById('source-filter').addEventListener('input', debounce(applyFilters, 300));
+  const sourceFilter = document.getElementById('source-filter');
+  if (sourceFilter) {
+    sourceFilter.addEventListener('input', debounce(applyFilters, 300));
+  }
   
   // Filter dropdowns
-  document.getElementById('project-filter').addEventListener('change', applyFilters);
-  document.getElementById('color-filter').addEventListener('change', applyFilters);
-  document.getElementById('date-filter').addEventListener('change', handleDateFilter);
+  const projectFilter = document.getElementById('project-filter');
+  if (projectFilter) {
+    projectFilter.addEventListener('change', applyFilters);
+  }
+  
+  const colorFilter = document.getElementById('color-filter');
+  if (colorFilter) {
+    colorFilter.addEventListener('change', applyFilters);
+  }
+  
+  const dateFilter = document.getElementById('date-filter');
+  if (dateFilter) {
+    dateFilter.addEventListener('change', handleDateFilter);
+  }
   
   // Date range inputs
-  document.getElementById('date-from').addEventListener('change', applyFilters);
-  document.getElementById('date-to').addEventListener('change', applyFilters);
+  const dateFrom = document.getElementById('date-from');
+  if (dateFrom) {
+    dateFrom.addEventListener('change', applyFilters);
+  }
+  
+  const dateTo = document.getElementById('date-to');
+  if (dateTo) {
+    dateTo.addEventListener('change', applyFilters);
+  }
   
   // Clear filters
-  document.getElementById('clear-filters-btn').addEventListener('click', clearFilters);
-  
-  // View controls
-  document.getElementById('view-list-btn').addEventListener('click', () => changeView('list'));
-  document.getElementById('view-cards-btn').addEventListener('click', () => changeView('cards'));
-  document.getElementById('view-timeline-btn').addEventListener('click', () => changeView('timeline'));
+  const clearFiltersBtn = document.getElementById('clear-filters-btn');
+  if (clearFiltersBtn) {
+    clearFiltersBtn.addEventListener('click', clearFilters);
+  }
   
   // Pagination
-  document.getElementById('prev-page-btn').addEventListener('click', () => changePage(currentPage - 1));
-  document.getElementById('next-page-btn').addEventListener('click', () => changePage(currentPage + 1));
+  const prevPageBtn = document.getElementById('prev-page-btn');
+  if (prevPageBtn) {
+    prevPageBtn.addEventListener('click', () => changePage(currentPage - 1));
+  }
+  
+  const nextPageBtn = document.getElementById('next-page-btn');
+  if (nextPageBtn) {
+    nextPageBtn.addEventListener('click', () => changePage(currentPage + 1));
+  }
   
   // Header actions
-  document.getElementById('export-btn').addEventListener('click', showExportModal);
-  document.getElementById('settings-btn').addEventListener('click', showSettingsModal);
+  const exportBtn = document.getElementById('export-btn');
+  if (exportBtn) {
+    exportBtn.addEventListener('click', showExportModal);
+  }
+  
+  const settingsBtn = document.getElementById('settings-btn');
+  if (settingsBtn) {
+    settingsBtn.addEventListener('click', showSettingsModal);
+  }
   
   // Modal close buttons
-  document.getElementById('close-settings').addEventListener('click', hideSettingsModal);
-  document.getElementById('close-export').addEventListener('click', hideExportModal);
+  const closeSettings = document.getElementById('close-settings');
+  if (closeSettings) {
+    closeSettings.addEventListener('click', hideSettingsModal);
+  }
+  
+  const closeExport = document.getElementById('close-export');
+  if (closeExport) {
+    closeExport.addEventListener('click', hideExportModal);
+  }
   
   // Export modal
-  document.getElementById('do-export-btn').addEventListener('click', doExport);
-  document.getElementById('cancel-export-btn').addEventListener('click', hideExportModal);
+  const doExportBtn = document.getElementById('do-export-btn');
+  if (doExportBtn) {
+    doExportBtn.addEventListener('click', doExport);
+  }
+  
+  const cancelExportBtn = document.getElementById('cancel-export-btn');
+  if (cancelExportBtn) {
+    cancelExportBtn.addEventListener('click', hideExportModal);
+  }
   
   // Settings modal
   setupSettingsModal();
