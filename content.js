@@ -131,7 +131,6 @@ async function loadSettings() {
 // Setup event listeners
 function setupEventListeners() {
   document.addEventListener('mouseup', handleTextSelection);
-  document.addEventListener('contextmenu', handleContextMenu);
   document.addEventListener('click', hideContextMenu);
 }
 
@@ -784,6 +783,15 @@ async function restoreHighlight(highlightData) {
 // Make functions globally accessible
 window.copyPageHighlights = copyPageHighlights;
 window.openDashboard = openDashboard;
+
+// Hide context menu
+function hideContextMenu() {
+  const existingMenus = document.querySelectorAll('.smart-highlight-context-menu');
+  existingMenus.forEach(menu => menu.remove());
+  
+  const existingToolbars = document.querySelectorAll('.smart-highlight-toolbar');
+  existingToolbars.forEach(toolbar => toolbar.remove());
+}
 function hideContextMenu() {
   const existingMenus = document.querySelectorAll('.smart-highlight-context-menu');
   existingMenus.forEach(menu => menu.remove());
