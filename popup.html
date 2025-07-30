@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Highlighter</title>
+  <style>
+    body {
+      width: 320px;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f8f9fa;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+    
+    .header h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    
+    .header p {
+      margin: 5px 0 0 0;
+      opacity: 0.9;
+      font-size: 12px;
+    }
+    
+    .content {
+      padding: 20px;
+    }
+    
+    .quick-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    
+    .action-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+      background: white;
+      border: 2px solid #e9ecef;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+      color: #495057;
+    }
+    
+    .action-btn:hover {
+      border-color: #667eea;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+    }
+    
+    .action-btn .icon {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+    
+    .action-btn .label {
+      font-size: 12px;
+      font-weight: 500;
+      text-align: center;
+    }
+    
+    .stats {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 20px;
+      border: 1px solid #e9ecef;
+    }
+    
+    .stats h3 {
+      margin: 0 0 12px 0;
+      font-size: 14px;
+      color: #495057;
+    }
+    
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    
+    .stat-item {
+      text-align: center;
+    }
+    
+    .stat-number {
+      font-size: 20px;
+      font-weight: 600;
+      color: #667eea;
+    }
+    
+    .stat-label {
+      font-size: 11px;
+      color: #6c757d;
+      margin-top: 2px;
+    }
+    
+    .current-project {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      border: 1px solid #e9ecef;
+    }
+    
+    .current-project h3 {
+      margin: 0 0 12px 0;
+      font-size: 14px;
+      color: #495057;
+    }
+    
+    .project-selector {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    
+    .project-tag {
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 2px solid #e9ecef;
+      background: white;
+    }
+    
+    .project-tag.active {
+      background: #667eea;
+      color: white;
+      border-color: #667eea;
+    }
+    
+    .project-tag:hover:not(.active) {
+      border-color: #667eea;
+      color: #667eea;
+    }
+    
+    .footer {
+      padding: 0 20px 20px;
+      text-align: center;
+    }
+    
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      font-size: 12px;
+    }
+    
+    .footer-links a {
+      color: #6c757d;
+      text-decoration: none;
+    }
+    
+    .footer-links a:hover {
+      color: #667eea;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🎨 Smart Highlighter</h1>
+    <p>Highlight, organize, and share your insights</p>
+  </div>
+  
+  <div class="content">
+    <div class="quick-actions">
+      <button class="action-btn" id="open-dashboard">
+        <div class="icon">📊</div>
+        <div class="label">Dashboard</div>
+      </button>
+      <button class="action-btn" id="export-highlights">
+        <div class="icon">📤</div>
+        <div class="label">Export</div>
+      </button>
+    </div>
+    
+    <div class="stats">
+      <h3>📈 Your Highlights</h3>
+      <div class="stat-grid">
+        <div class="stat-item">
+          <div class="stat-number" id="total-highlights">-</div>
+          <div class="stat-label">Total</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-number" id="this-week">-</div>
+          <div class="stat-label">This Week</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="current-project">
+      <h3>📁 Active Projects</h3>
+      <div class="project-selector" id="project-selector">
+        <!-- Projects will be loaded here -->
+      </div>
+    </div>
+  </div>
+  
+  <div class="footer">
+    <div class="footer-links">
+      <a href="#" id="settings-link">Settings</a>
+      <a href="#" id="help-link">Help</a>
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
