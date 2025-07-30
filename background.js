@@ -1,4 +1,4 @@
-// Smart Highlighter Background Script
+// Highlight Hub Background Script
 
 // Initialize extension
 chrome.runtime.onInstalled.addListener(async () => {
@@ -8,7 +8,19 @@ chrome.runtime.onInstalled.addListener(async () => {
   // Create context menus
   createContextMenus();
   
-  console.log('Smart Highlighter installed successfully!');
+  // Update badge count
+  updateBadgeCount();
+  
+  console.log('Highlight Hub installed successfully!');
+});
+
+// Handle keyboard shortcuts
+chrome.commands.onCommand.addListener((command) => {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (tabs[0]) {
+      chrome.tabs.sendMessage(tabs[0].id, { action: command });
+    }
+  });
 });
 
 // Initialize default settings
@@ -16,21 +28,21 @@ async function initializeDefaultSettings() {
   const result = await chrome.storage.sync.get(['projects', 'colorSchemes', 'activeProjects']);
   
   if (!result.projects) {
-    const defaultProjects = ['Home', 'Work', 'Side Project'];
+    const defaultProjects = ['Personal', 'Work', 'Research'];
     await chrome.storage.sync.set({ projects: defaultProjects });
   }
   
   if (!result.activeProjects) {
-    await chrome.storage.sync.set({ activeProjects: ['Home'] });
+    await chrome.storage.sync.set({ activeProjects: ['Personal'] });
   }
   
   if (!result.colorSchemes) {
     const defaultColorSchemes = {
-      'Home': {
+      'Personal': {
         'yellow': 'Important',
         'green': 'Ideas', 
         'blue': 'To Research',
-        'pink': 'Personal',
+        'pink': 'Fun',
         'orange': 'Action Items',
         'red': 'Urgent',
         'purple': 'Questions',
@@ -46,15 +58,15 @@ async function initializeDefaultSettings() {
         'purple': 'Questions',
         'gray': 'Reference'
       },
-      'Side Project': {
-        'yellow': 'Features to Build',
-        'green': 'Marketing Ideas',
-        'blue': 'Technical Notes',
-        'pink': 'User Feedback',
-        'orange': 'Bugs',
-        'red': 'Priority',
-        'purple': 'Research',
-        'gray': 'Ideas'
+      'Research': {
+        'yellow': 'Key Findings',
+        'green': 'Hypotheses',
+        'blue': 'Data',
+        'pink': 'Insights',
+        'orange': 'To Investigate',
+        'red': 'Critical',
+        'purple': 'Questions',
+        'gray': 'Background'
       }
     };
     await chrome.storage.sync.set({ colorSchemes: defaultColorSchemes });
@@ -141,6 +153,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       
     case 'shareHighlight':
       handleShareHighlight(request.data, sender.tab);
+      break;
+      
+    case 'updateBadge':
+      await updateBadgeCount();
       break;
       
     case 'getActiveProjects':
@@ -257,6 +273,20 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
     });
   }
 });
+
+// Update badge count
+async function updateBadgeCount() {
+  const result = await chrome.storage.sync.get(['highlights']);
+  const highlights = result.highlights || [];
+  
+  chrome.action.setBadgeText({
+    text: highlights.length > 0 ? highlights.length.toString() : ''
+  });
+  
+  chrome.action.setBadgeBackgroundColor({
+    color: '#667eea'
+  });
+}
 
 // Cleanup old highlights periodically (optional)
 chrome.alarms.create('cleanupHighlights', { periodInMinutes: 60 * 24 }); // Daily
