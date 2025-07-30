@@ -38,5 +38,5 @@
       "resources": ["dashboard.html", "dashboard.js", "dashboard.css"],
       "matches": ["<all_urls>"]
     }
-  ],
+  ]
 }
