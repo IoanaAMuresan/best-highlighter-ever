@@ -544,8 +544,14 @@ async function deleteHighlight(element, highlightData) {
     }
     element.remove();
     
-    updatePageIndicator();
-    updateBadgeCount();
+    // Update indicators (with error handling)
+    try {
+      updatePageIndicator();
+      updateBadgeCount();
+    } catch (e) {
+      console.warn('Could not update indicators:', e);
+    }
+    
     showNotification('Highlight deleted!');
   } catch (error) {
     console.error('Error deleting highlight:', error);
