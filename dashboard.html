@@ -11,7 +11,7 @@
     <!-- Header -->
     <header class="dashboard-header">
       <div class="header-content">
-        <h1>🎨 Smart Highlighter Dashboard</h1>
+        <h1>🎯 Highlight Hub Dashboard</h1>
         <div class="header-actions">
           <button id="export-btn" class="action-btn">📤 Export</button>
           <button id="settings-btn" class="action-btn">⚙️ Settings</button>
@@ -43,7 +43,12 @@
     <div class="filters-section">
       <div class="filter-group">
         <label>🔍 Search:</label>
-        <input type="text" id="search-input" placeholder="Search highlights and notes...">
+        <input type="text" id="search-input" placeholder="Search highlights, notes, or ask 'where did I see...'">
+      </div>
+      
+      <div class="filter-group">
+        <label>🌐 Source:</label>
+        <input type="text" id="source-filter" placeholder="Filter by website (e.g. wikipedia)">
       </div>
       
       <div class="filter-group">
@@ -67,6 +72,7 @@
           <option value="today">Today</option>
           <option value="week">This Week</option>
           <option value="month">This Month</option>
+          <option value="year">This Year</option>
           <option value="custom">Custom Range</option>
         </select>
       </div>
@@ -86,10 +92,13 @@
       <div class="highlights-section">
         <div class="section-header">
           <h2>Your Highlights</h2>
-          <div class="view-controls">
-            <button id="view-list-btn" class="view-btn active">📋 List</button>
-            <button id="view-cards-btn" class="view-btn">🃏 Cards</button>
-            <button id="view-timeline-btn" class="view-btn">📊 Timeline</button>
+          <div class="bulk-actions" id="bulk-actions" style="display: none;">
+            <button id="select-all-btn" class="bulk-btn">Select All</button>
+            <button id="bulk-delete-btn" class="bulk-btn danger">Delete Selected</button>
+            <button id="bulk-export-btn" class="bulk-btn">Export Selected</button>
+            <button id="bulk-project-btn" class="bulk-btn">Change Project</button>
+          </div>
+        </div>view-timeline-btn" class="view-btn">📊 Timeline</button>
           </div>
         </div>
         
