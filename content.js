@@ -303,13 +303,14 @@ async function highlightSelection(color) {
   
   await saveHighlight(highlightData);
   
-  // Add context menu listener with higher priority
+  // Add context menu listener with highest priority
   highlightElement.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
     showHighlightContextMenu(e, highlightElement, highlightData);
-  }, true); // Use capture phase
+    return false; // Explicitly prevent default
+  }, { capture: true, passive: false }); // Use capture phase and non-passive
   
   selection.removeAllRanges();
   updatePageIndicator();
@@ -634,24 +635,24 @@ async function deleteHighlight(element, highlightData) {
 
 // Open dashboard
 function openDashboard() {
+  console.log('Opening dashboard...');
+  
+  // Direct approach - most reliable
+  const dashboardUrl = chrome.runtime.getURL('dashboard.html');
+  console.log('Dashboard URL:', dashboardUrl);
+  
   try {
-    // Use chrome.runtime API to open dashboard in new tab
-    chrome.runtime.sendMessage({ action: 'openDashboard' }, () => {
-      if (chrome.runtime.lastError) {
-        // Fallback: try direct approach
-        const dashboardUrl = chrome.runtime.getURL('dashboard.html');
-        window.open(dashboardUrl, '_blank');
-      }
-    });
+    window.open(dashboardUrl, '_blank');
+    console.log('Dashboard opened successfully');
   } catch (error) {
     console.error('Error opening dashboard:', error);
-    // Last resort fallback
-    try {
-      const dashboardUrl = chrome.runtime.getURL('dashboard.html');
-      window.open(dashboardUrl, '_blank');
-    } catch (fallbackError) {
-      console.error('Fallback also failed:', fallbackError);
-    }
+    
+    // Fallback: try via background script
+    chrome.runtime.sendMessage({ action: 'openDashboard' }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.error('Background script fallback failed:', chrome.runtime.lastError);
+      }
+    });
   }
 }
 
