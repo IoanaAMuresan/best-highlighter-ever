@@ -1,0 +1,298 @@
+/* Smart Highlighter Styles */
+
+:root {
+  --color-yellow: #ffeb3b;
+  --color-green: #4caf50;
+  --color-blue: #2196f3;
+  --color-pink: #e91e63;
+  --color-orange: #ff9800;
+  --color-red: #f44336;
+  --color-purple: #9c27b0;
+  --color-gray: #9e9e9e;
+}
+
+/* Highlight Styles */
+.smart-highlight {
+  padding: 2px 4px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  display: inline;
+}
+
+.smart-highlight:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transform: translateY(-1px);
+}
+
+.smart-highlight-yellow { background-color: rgba(255, 235, 59, 0.4); }
+.smart-highlight-green { background-color: rgba(76, 175, 80, 0.4); }
+.smart-highlight-blue { background-color: rgba(33, 150, 243, 0.4); }
+.smart-highlight-pink { background-color: rgba(233, 30, 99, 0.4); }
+.smart-highlight-orange { background-color: rgba(255, 152, 0, 0.4); }
+.smart-highlight-red { background-color: rgba(244, 67, 54, 0.4); }
+.smart-highlight-purple { background-color: rgba(156, 39, 176, 0.4); }
+.smart-highlight-gray { background-color: rgba(158, 158, 158, 0.4); }
+
+/* Highlight Toolbar */
+.smart-highlight-toolbar {
+  position: absolute;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  padding: 8px;
+  z-index: 10000;
+  animation: fadeInUp 0.2s ease;
+}
+
+.highlight-colors {
+  display: flex;
+  gap: 4px;
+}
+
+.color-btn {
+  width: 28px;
+  height: 28px;
+  border: 2px solid white;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  outline: none;
+}
+
+.color-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Context Menu */
+.smart-highlight-context-menu {
+  position: absolute;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  padding: 8px 0;
+  min-width: 160px;
+  z-index: 10001;
+  animation: fadeInUp 0.2s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  position: relative;
+}
+
+.menu-item:hover {
+  background-color: #f5f5f5;
+}
+
+.menu-item.delete:hover {
+  background-color: #ffebee;
+  color: #f44336;
+}
+
+.menu-item span:first-child {
+  margin-right: 12px;
+  width: 16px;
+}
+
+/* Submenu */
+.submenu-parent:hover .submenu {
+  display: block;
+}
+
+.submenu {
+  display: none;
+  position: absolute;
+  left: 100%;
+  top: 0;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  padding: 8px 0;
+  min-width: 140px;
+  z-index: 10002;
+}
+
+.color-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+}
+
+.color-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-right: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.project-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+}
+
+.project-item span:first-child {
+  margin-right: 8px;
+  width: 16px;
+}
+
+/* Note Dialog */
+.smart-highlight-note-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10003;
+  animation: fadeIn 0.2s ease;
+}
+
+.note-dialog-content {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 400px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  animation: slideUp 0.2s ease;
+}
+
+.note-dialog-content h3 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.note-dialog-content textarea {
+  width: 100%;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  margin-bottom: 16px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.note-dialog-content textarea:focus {
+  border-color: #2196f3;
+}
+
+.note-dialog-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.note-dialog-buttons button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.cancel-btn {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.cancel-btn:hover {
+  background: #e0e0e0;
+}
+
+.save-btn {
+  background: #2196f3;
+  color: white;
+}
+
+.save-btn:hover {
+  background: #1976d2;
+}
+
+/* Notification */
+.smart-highlight-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: #323232;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  z-index: 10004;
+  font-size: 14px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  animation: slideInRight 0.3s ease;
+}
+
+.smart-highlight-notification.fade-out {
+  animation: fadeOut 0.3s ease;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Ensure highlights don't interfere with page layout */
+.smart-highlight * {
+  box-sizing: border-box;
+}
