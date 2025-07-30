@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Load all highlights from storage
 async function loadHighlights() {
   try {
-    const result = await chrome.storage.local.get(['highlights']);
+    const result = await chrome.storage.sync.get(['highlights']);
     allHighlights = result.highlights || [];
     filteredHighlights = [...allHighlights];
     
@@ -73,7 +73,7 @@ async function setupFilters() {
     { value: 'yellow', label: 'Yellow - Important' },
     { value: 'green', label: 'Green - Ideas' },
     { value: 'blue', label: 'Blue - Research' },
-    { value: 'pink', label: 'Pink - Personal' },
+    { value: 'pink', label: 'Pink - Fun' },
     { value: 'orange', label: 'Orange - Action Items' },
     { value: 'red', label: 'Red - Urgent' },
     { value: 'purple', label: 'Purple - Questions' },
@@ -182,6 +182,7 @@ function applyFilters() {
     
     // Color filter
     if (colorFilter && highlight.color !== colorFilter) {
+      console.log(`Filtering out highlight with color ${highlight.color}, looking for ${colorFilter}`);
       return false;
     }
     
